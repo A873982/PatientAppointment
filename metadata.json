@@ -1,0 +1,7 @@
+{
+  "name": "Doc Point 2",
+  "description": "Book an Appointment using AI Agent",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
