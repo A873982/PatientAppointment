@@ -1,0 +1,50 @@
+steps:
+  # 1. Terraform Init
+  - name: 'hashicorp/terraform:light'
+    dir: 'terraform'
+    args: ['init']
+    id: 'Terraform Init'
+
+  # 2. Terraform Apply (Repo only) - Bootstrap Artifact Registry
+  - name: 'hashicorp/terraform:light'
+    dir: 'terraform'
+    args:
+      - 'apply'
+      - '-auto-approve'
+      - '-target=google_artifact_registry_repository.repo'
+      - '-var=project_id=prj-sbx-polarisai-160925'
+      - '-var=image_tag=latest'
+    id: 'Terraform Apply Repo'
+
+  # 3. Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'us-central1-docker.pkg.dev/prj-sbx-polarisai-160925/patient-appointment-repo/patient-appointment:latest', '.']
+    id: 'Build Docker Image'
+
+  # 4. Push the Docker image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'us-central1-docker.pkg.dev/prj-sbx-polarisai-160925/patient-appointment-repo/patient-appointment:latest']
+    id: 'Push Docker Image'
+
+  # 5. Terraform Plan (Full)
+  - name: 'hashicorp/terraform:light'
+    dir: 'terraform'
+    args:
+      - 'plan'
+      - '-var=project_id=prj-sbx-polarisai-160925'
+      - '-var=image_tag=latest'
+      - '-var=iap_allowed_users=["jaganathan.p@atos.net"]'
+      - '-var=iap_allowed_groups=["Alliances-Google_Sandbox-Polars_POC-RW@atos.net"]'
+    id: 'Terraform Plan'
+
+  # 6. Terraform Apply (Full)
+  - name: 'hashicorp/terraform:light'
+    dir: 'terraform'
+    args:
+      - 'apply'
+      - '-auto-approve'
+      - '-var=project_id=prj-sbx-polarisai-160925'
+      - '-var=image_tag=latest'
+      - '-var=iap_allowed_users=["jaganathan.p@atos.net"]'
+      - '-var=iap_allowed_groups=["Alliances-Google_Sandbox-Polars_POC-RW@atos.net"]'
+    id: 'Terraform Apply Full'

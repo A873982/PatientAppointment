@@ -259,28 +259,37 @@ export default function App() {
   };
 
   const toggleConnection = async () => {
+    // Prefer runtime-injected key (Cloud Run env var via docker-entrypoint.sh),
+    // fall back to build-time key (local .env via vite.config.ts).
+    const apiKey = (window as any).GEMINI_API_KEY || process.env.API_KEY;
     if (connected) {
       await savePartialTranscript();
       await agentRef.current?.disconnect();
       setConnected(false);
-      currentPatientName.current = '';
+      currentPatientName.current = "";
       currentTranscriptFileName.current = null;
     } else {
-      if (!process.env.API_KEY) return setError("Gemini API Key missing.");
+      if (!apiKey) return setError("Gemini API Key missing.");
       setLogs([]);
       currentTranscriptFileName.current = null;
       const agent = new LiveAgentService({
-        apiKey: process.env.API_KEY,
+        apiKey: apiKey,
         onConnect: () => setConnected(true),
         onDisconnect: () => setConnected(false),
-        onError: (e) => { setError(e.message); setConnected(false); },
+        onError: (e) => {
+          setError(e.message);
+          setConnected(false);
+        },
         onTranscript: (text, role, isFinal) => addLog(text, role, isFinal),
-        onToolCall: handleToolCall
+        onToolCall: handleToolCall,
       });
       agentRef.current = agent;
-      await agent.connect(`You are Athosia, clinical assistant for Upstate Medical. LISTEN FULLY. Today is ${new Date().toISOString().split('T')[0]}. Confirm Doctor, Date, Time, and Location.`, TOOLS);
+      await agent.connect(
+        `You are Athosia, clinical assistant for Upstate Medical. LISTEN FULLY. Today is ${new Date().toISOString().split("T")[0]}. Confirm Doctor, Date, Time, and Location.`,
+        TOOLS,
+      );
     }
-  };
+  };;
 
   const handleLogout = () => {
     if (connected) agentRef.current?.disconnect();

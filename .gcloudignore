@@ -1,0 +1,7 @@
+.git
+.gitignore
+node_modules
+dist
+terraform/.terraform
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
