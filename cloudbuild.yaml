@@ -1,3 +1,10 @@
+substitutions:
+  _REGION: us-central1
+  _PROJECT_ID: prj-sbx-polarisai-160925
+  _REPO_NAME: patient-appointment-repo
+  _SERVICE_NAME: patient-appointment
+  _IMAGE_TAG: latest
+
 steps:
   # 1. Terraform Init
   - name: 'hashicorp/terraform:light'
@@ -12,18 +19,24 @@ steps:
       - 'apply'
       - '-auto-approve'
       - '-target=google_artifact_registry_repository.repo'
-      - '-var=project_id=prj-sbx-polarisai-160925'
-      - '-var=image_tag=latest'
+      - '-var-file=terraform.tfvars'
+      - '-var=image_tag=$_IMAGE_TAG'
     id: 'Terraform Apply Repo'
 
   # 3. Build the Docker image
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'us-central1-docker.pkg.dev/prj-sbx-polarisai-160925/patient-appointment-repo/patient-appointment:latest', '.']
+    args:
+      - 'build'
+      - '-t'
+      - '$_REGION-docker.pkg.dev/$_PROJECT_ID/$_REPO_NAME/$_SERVICE_NAME:$_IMAGE_TAG'
+      - '.'
     id: 'Build Docker Image'
 
   # 4. Push the Docker image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'us-central1-docker.pkg.dev/prj-sbx-polarisai-160925/patient-appointment-repo/patient-appointment:latest']
+    args:
+      - 'push'
+      - '$_REGION-docker.pkg.dev/$_PROJECT_ID/$_REPO_NAME/$_SERVICE_NAME:$_IMAGE_TAG'
     id: 'Push Docker Image'
 
   # 5. Terraform Plan (Full)
@@ -31,10 +44,8 @@ steps:
     dir: 'terraform'
     args:
       - 'plan'
-      - '-var=project_id=prj-sbx-polarisai-160925'
-      - '-var=image_tag=latest'
-      - '-var=iap_allowed_users=["jaganathan.p@atos.net"]'
-      - '-var=iap_allowed_groups=["Alliances-Google_Sandbox-Polars_POC-RW@atos.net"]'
+      - '-var-file=terraform.tfvars'
+      - '-var=image_tag=$_IMAGE_TAG'
     id: 'Terraform Plan'
 
   # 6. Terraform Apply (Full)
@@ -43,8 +54,6 @@ steps:
     args:
       - 'apply'
       - '-auto-approve'
-      - '-var=project_id=prj-sbx-polarisai-160925'
-      - '-var=image_tag=latest'
-      - '-var=iap_allowed_users=["jaganathan.p@atos.net"]'
-      - '-var=iap_allowed_groups=["Alliances-Google_Sandbox-Polars_POC-RW@atos.net"]'
+      - '-var-file=terraform.tfvars'
+      - '-var=image_tag=$_IMAGE_TAG'
     id: 'Terraform Apply Full'

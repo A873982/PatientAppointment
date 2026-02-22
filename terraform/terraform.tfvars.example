@@ -1,0 +1,54 @@
+# =============================================================================
+# terraform.tfvars.example — template for new environments
+#
+# Copy this file to terraform.tfvars and fill in real values.
+# This file is safe to commit to version control.
+# =============================================================================
+
+# -----------------------------------------------------------------------
+# Project & Region
+# -----------------------------------------------------------------------
+project_id = "your-gcp-project-id"
+region     = "us-central1"
+
+# -----------------------------------------------------------------------
+# Deployment
+# -----------------------------------------------------------------------
+image_tag       = "latest"
+service_name    = "patient-appointment"
+repository_name = "patient-appointment-repo"
+
+# -----------------------------------------------------------------------
+# Infrastructure sizing
+# -----------------------------------------------------------------------
+cloud_run_cpu    = "1000m"
+cloud_run_memory = "512Mi"
+
+# -----------------------------------------------------------------------
+# Networking
+# -----------------------------------------------------------------------
+vpc_network_name = "your-vpc-network-name"
+vpc_subnet_name  = "your-vpc-subnet-name"
+
+# -----------------------------------------------------------------------
+# API Gateway
+# -----------------------------------------------------------------------
+api_gateway_id = "patient-appointment-gateway"
+
+# -----------------------------------------------------------------------
+# IAP Access Control
+# -----------------------------------------------------------------------
+iap_allowed_users = [
+  "user@example.com"
+]
+
+iap_allowed_groups = [
+  "group@example.com"
+]
+
+iap_service_account = "service-PROJECT_NUMBER@gcp-sa-iap.iam.gserviceaccount.com"
+
+# -----------------------------------------------------------------------
+# Secrets
+# -----------------------------------------------------------------------
+gemini_api_key = "YOUR_GEMINI_API_KEY"

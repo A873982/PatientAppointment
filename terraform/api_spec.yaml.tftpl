@@ -1,0 +1,77 @@
+swagger: '2.0'
+info:
+  title: Patient Appointment Gateway
+  description: Gateway to proxy requests to Cloud Run
+  version: 1.0.0
+schemes:
+  - https
+produces:
+  - application/json
+paths:
+  /**:
+    get:
+      summary: Catch-all
+      operationId: catch_all_get
+      x-google-backend:
+        address: ${cloud_run_url}
+        path_translation: APPEND_PATH_TO_ADDRESS
+      responses:
+        '200':
+          description: A successful response
+          schema:
+            type: string
+    post:
+      summary: Catch-all POST
+      operationId: catch_all_post
+      x-google-backend:
+        address: ${cloud_run_url}
+        path_translation: APPEND_PATH_TO_ADDRESS
+      responses:
+        '200':
+          description: A successful response
+          schema:
+            type: string
+    put:
+      summary: Catch-all PUT
+      operationId: catch_all_put
+      x-google-backend:
+        address: ${cloud_run_url}
+        path_translation: APPEND_PATH_TO_ADDRESS
+      responses:
+        '200':
+          description: A successful response
+          schema:
+            type: string
+    delete:
+      summary: Catch-all DELETE
+      operationId: catch_all_delete
+      x-google-backend:
+        address: ${cloud_run_url}
+        path_translation: APPEND_PATH_TO_ADDRESS
+      responses:
+        '200':
+          description: A successful response
+          schema:
+            type: string
+    patch:
+      summary: Catch-all PATCH
+      operationId: catch_all_patch
+      x-google-backend:
+        address: ${cloud_run_url}
+        path_translation: APPEND_PATH_TO_ADDRESS
+      responses:
+        '200':
+          description: A successful response
+          schema:
+            type: string
+    head:
+      summary: Catch-all HEAD
+      operationId: catch_all_head
+      x-google-backend:
+        address: ${cloud_run_url}
+        path_translation: APPEND_PATH_TO_ADDRESS
+      responses:
+        '200':
+          description: A successful response
+          schema:
+            type: string
