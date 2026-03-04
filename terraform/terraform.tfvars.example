@@ -8,15 +8,15 @@
 # -----------------------------------------------------------------------
 # Project & Region
 # -----------------------------------------------------------------------
-project_id = "thd-workspace"
+project_id = "prj-sbx-polarisai-160925"
 region     = "us-central1"
 
 # -----------------------------------------------------------------------
 # Deployment
 # -----------------------------------------------------------------------
 image_tag       = "latest"
-service_name    = "patient-appointment"
-repository_name = "patient-appointment-repo"
+service_name    = "patient-appointment-v2"
+repository_name = "patient-appointment-v2-repo"
 
 # -----------------------------------------------------------------------
 # Infrastructure sizing
@@ -34,7 +34,7 @@ vpc_subnet_name  = "polaris-dev-subnet"
 # -----------------------------------------------------------------------
 # API Gateway
 # -----------------------------------------------------------------------
-api_gateway_id = "patient-appointment-gateway"
+api_gateway_id = "patient-appointment-v2-gateway"
 
 # -----------------------------------------------------------------------
 # IAP Access Control
