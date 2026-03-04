@@ -35,3 +35,5 @@ terraform.tfstate.backup
 # terraform.tfvars contains secrets — NEVER commit this file.
 # Use terraform.tfvars.example as a safe template instead.
 terraform/terraform.tfvars
+
+docs

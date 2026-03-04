@@ -12,10 +12,44 @@ variable "image_tag" {
   type        = string
 }
 
-variable "gemini_api_key" {
-  description = "Gemini API key injected into Cloud Run at runtime"
+variable "db_name" {
+  description = "PostgreSQL database name"
   type        = string
-  sensitive   = true
+  default     = "patient_appointment"
+}
+
+variable "db_user" {
+  description = "PostgreSQL application user"
+  type        = string
+  default     = "patient_app"
+}
+
+variable "gemini_api_secret_id" {
+  description = "Secret Manager secret id containing Gemini API key"
+  type        = string
+}
+
+variable "gemini_api_secret_version" {
+  description = "Gemini API key secret version"
+  type        = string
+  default     = "latest"
+}
+
+variable "db_password_secret_id" {
+  description = "Secret Manager secret id containing PostgreSQL app user password"
+  type        = string
+}
+
+variable "db_password_secret_version" {
+  description = "DB password secret version"
+  type        = string
+  default     = "latest"
+}
+
+variable "cloud_run_service_account_id" {
+  description = "Service account id (name) for Cloud Run runtime"
+  type        = string
+  default     = "patient-appointment-sa"
 }
 
 variable "iap_allowed_users" {
@@ -65,6 +99,12 @@ variable "cloud_run_memory" {
   description = "Memory limit for each Cloud Run container instance"
   type        = string
   default     = "512Mi"
+}
+
+variable "cloud_sql_tier" {
+  description = "Cloud SQL machine tier"
+  type        = string
+  default     = "db-custom-1-3840"
 }
 
 variable "vpc_network_name" {

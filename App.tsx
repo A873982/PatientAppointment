@@ -13,23 +13,11 @@ import {
   Phone, 
   Mic, 
   MicOff, 
-  Activity, 
-  AlertCircle, 
-  Download, 
-  FileText, 
   Stethoscope, 
-  RefreshCw,
-  Terminal,
   Settings,
   UserCircle,
   ShieldCheck,
-  Link2,
-  FileSpreadsheet,
-  Unlink,
-  UploadCloud,
   MessageSquare,
-  Clock,
-  MapPin,
   FileDown,
   Calendar,
   LogOut,
@@ -83,8 +71,6 @@ export default function App() {
   const [connected, setConnected] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isSyncingLocal, setIsSyncingLocal] = useState(false);
-  const [isFallbackMode, setIsFallbackMode] = useState(false);
   const [logs, setLogs] = useState<LogMessage[]>([]);
   const [systemLogs, setSystemLogs] = useState<LogMessage[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -92,7 +78,6 @@ export default function App() {
   
   const agentRef = useRef<LiveAgentService | null>(null);
   const logsEndRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const currentPatientName = useRef<string>('');
   const currentTranscriptFileName = useRef<string | null>(null);
@@ -143,40 +128,6 @@ export default function App() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  };
-
-  const handleSyncLocalFile = async () => {
-    try {
-      if (SQLiteService.isFileSystemSupported()) {
-        const [handle] = await (window as any).showOpenFilePicker({
-          types: [{ description: 'SQLite DB', accept: { 'application/octet-stream': ['.db', '.sqlite'] } }]
-        });
-        if (handle) {
-          setIsRefreshing(true);
-          const success = await SQLiteService.connectLocalFile(handle);
-          if (success) {
-            await loadSQLiteData();
-            setIsSyncingLocal(true);
-            setToast({ message: "Linked to Physical DB", type: 'success' });
-          }
-        }
-      }
-    } catch (err) {} finally { setIsRefreshing(false); }
-  };
-
-  const handleLegacyFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setIsRefreshing(true);
-    try {
-      const success = await SQLiteService.loadFromBlob(file);
-      if (success) {
-        await loadSQLiteData();
-        setIsSyncingLocal(true);
-        setIsFallbackMode(true);
-        setToast({ message: "Local DB Restored", type: 'success' });
-      }
-    } finally { setIsRefreshing(false); }
   };
 
   const addLog = (text: string, role: 'user' | 'model', isFinal: boolean = true) => {
@@ -259,8 +210,7 @@ export default function App() {
   };
 
   const toggleConnection = async () => {
-    // Prefer runtime-injected key (Cloud Run env var via docker-entrypoint.sh),
-    // fall back to build-time key (local .env via vite.config.ts).
+    // Prefer runtime-injected key from server, fall back to local Vite env mapping.
     const apiKey = (window as any).GEMINI_API_KEY || process.env.API_KEY;
     if (connected) {
       await savePartialTranscript();
@@ -303,7 +253,11 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans text-slate-900 overflow-hidden">
-      <input type="file" ref={fileInputRef} onChange={handleLegacyFileSelect} className="hidden" accept=".db,.sqlite" />
+      {error && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[70] bg-red-600 text-white px-6 py-3 rounded-xl shadow-xl text-sm font-bold">
+          {error}
+        </div>
+      )}
 
       {toast?.type === 'sms' && (
         <div className="fixed bottom-6 right-6 z-[100] animate-slide-up w-80">
@@ -399,8 +353,7 @@ export default function App() {
            <AppointmentGrid doctors={doctors} schedules={schedules} currentDate={selectedDate} />
          ) : view === 'admin' ? (
            <AdminDashboard 
-             doctors={doctors} schedules={schedules} onUpdate={() => loadSQLiteData()} 
-             onSyncLocal={handleSyncLocalFile} isSyncingLocal={isSyncingLocal} isFallbackMode={isFallbackMode}
+             doctors={doctors} onUpdate={() => loadSQLiteData()}
            />
          ) : (
            <UserManagement />

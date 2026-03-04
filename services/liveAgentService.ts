@@ -1,5 +1,5 @@
 
-import { GoogleGenAI, LiveServerMessage, Modality, FunctionDeclaration, Type } from '@google/genai';
+import { GoogleGenAI, LiveServerMessage, Modality, FunctionDeclaration } from '@google/genai';
 import { createPcmBlob, base64ToUint8Array, decodeAudioData } from '../utils/audioUtils';
 
 export interface LiveAgentConfig {
@@ -13,8 +13,10 @@ export interface LiveAgentConfig {
 
 export class LiveAgentService {
   private sessionPromise: Promise<any> | null = null;
+  private isSessionActive = false;
   private inputAudioContext: AudioContext | null = null;
   private outputAudioContext: AudioContext | null = null;
+  private micStream: MediaStream | null = null;
   private inputSource: MediaStreamAudioSourceNode | null = null;
   private processor: ScriptProcessorNode | null = null;
   private nextStartTime = 0;
@@ -43,6 +45,7 @@ export class LiveAgentService {
       this.inputAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
       this.outputAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      this.micStream = stream;
       
       this.sessionPromise = ai.live.connect({
         model: 'gemini-2.5-flash-native-audio-preview-12-2025',
@@ -56,14 +59,22 @@ export class LiveAgentService {
         },
         callbacks: {
           onopen: () => {
+            this.isSessionActive = true;
             this.handleOpen(stream);
-            this.sessionPromise?.then(s => s.sendRealtimeInput({
-              text: "Patient connected. Briefly greet them."
-            }));
+            this.sessionPromise?.then((s) => {
+              if (!this.isSessionActive) return;
+              s.sendRealtimeInput({ text: "Patient connected. Briefly greet them." });
+            }).catch(() => {});
           },
           onmessage: (msg) => this.handleMessage(msg),
-          onerror: (e) => this.config.onError(new Error("Voice service connection error")),
+          onerror: (_e) => {
+            this.isSessionActive = false;
+            this.stopInputPipeline();
+            this.config.onError(new Error("Voice service connection error"));
+          },
           onclose: () => {
+            this.isSessionActive = false;
+            this.stopInputPipeline();
             this.flushTranscriptions(true);
             this.config.onDisconnect();
           },
@@ -96,11 +107,31 @@ export class LiveAgentService {
     this.inputSource = this.inputAudioContext.createMediaStreamSource(stream);
     this.processor = this.inputAudioContext.createScriptProcessor(4096, 1, 1);
     this.processor.onaudioprocess = (e) => {
+      if (!this.isSessionActive) return;
       const pcmBlob = createPcmBlob(e.inputBuffer.getChannelData(0));
-      this.sessionPromise?.then(s => s.sendRealtimeInput({ media: pcmBlob }));
+      this.sessionPromise?.then((s) => {
+        if (!this.isSessionActive) return;
+        s.sendRealtimeInput({ media: pcmBlob });
+      }).catch(() => {});
     };
     this.inputSource.connect(this.processor);
     this.processor.connect(this.inputAudioContext.destination);
+  }
+
+  private stopInputPipeline() {
+    if (this.processor) {
+      this.processor.onaudioprocess = null;
+      try { this.processor.disconnect(); } catch {}
+      this.processor = null;
+    }
+    if (this.inputSource) {
+      try { this.inputSource.disconnect(); } catch {}
+      this.inputSource = null;
+    }
+    if (this.micStream) {
+      this.micStream.getTracks().forEach((t) => t.stop());
+      this.micStream = null;
+    }
   }
 
   private async handleMessage(message: LiveServerMessage) {
@@ -138,9 +169,12 @@ export class LiveAgentService {
     if (message.toolCall) {
       for (const fc of message.toolCall.functionCalls) {
         const result = await this.config.onToolCall(fc.name, fc.args);
-        this.sessionPromise?.then(s => s.sendToolResponse({
-          functionResponses: { id: fc.id, name: fc.name, response: { result } }
-        }));
+        this.sessionPromise?.then((s) => {
+          if (!this.isSessionActive) return;
+          s.sendToolResponse({
+            functionResponses: { id: fc.id, name: fc.name, response: { result } }
+          });
+        }).catch(() => {});
       }
     }
 
@@ -154,9 +188,9 @@ export class LiveAgentService {
   }
 
   public async disconnect() {
+    this.isSessionActive = false;
     this.flushTranscriptions(true);
-    this.inputSource?.disconnect();
-    this.processor?.disconnect();
+    this.stopInputPipeline();
     this.activeSources.forEach(s => { try { s.stop(); } catch {} });
     if (this.inputAudioContext?.state !== 'closed') {
       await this.inputAudioContext?.close();

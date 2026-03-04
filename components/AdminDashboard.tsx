@@ -12,8 +12,6 @@ import {
   X, 
   Stethoscope, 
   Settings2, 
-  ShieldCheck,
-  Link2,
   Download,
   Edit3,
   Calendar,
@@ -32,20 +30,12 @@ import {
 
 interface AdminDashboardProps {
   doctors: Doctor[];
-  schedules: Record<string, DoctorSchedule>;
   onUpdate: () => void;
-  onSyncLocal: () => void;
-  isSyncingLocal: boolean;
-  isFallbackMode: boolean;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ 
   doctors, 
-  schedules, 
-  onUpdate, 
-  onSyncLocal,
-  isSyncingLocal,
-  isFallbackMode
+  onUpdate
 }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -97,14 +87,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const handleDownloadDb = () => {
-    const binary = SQLiteService.exportDatabase();
-    const blob = new Blob([binary], { type: 'application/x-sqlite3' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Clinical_Archive_Full.db`;
-    a.click();
-    URL.revokeObjectURL(url);
+    SQLiteService.downloadDatabaseArchive();
   };
 
   const handleSaveDoc = async () => {
@@ -181,12 +164,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <h3 className="text-3xl font-black tracking-tight mb-2 uppercase">Infrastructure Console</h3>
           <p className="text-slate-400 text-sm mb-8">Manage staff profiles, availability overrides, and relational audits.</p>
           <div className="flex flex-wrap gap-4">
-            <button onClick={onSyncLocal} className={`px-8 py-4 rounded-2xl flex items-center gap-3 font-bold transition-all ${isSyncingLocal ? 'bg-emerald-500 text-white' : 'bg-white text-slate-900 hover:bg-slate-100'}`}>
-              {isSyncingLocal ? <ShieldCheck className="w-5 h-5" /> : <Link2 className="w-5 h-5" />}
-              {isSyncingLocal ? "Active Physical Link" : "Link Local SQLite"}
-            </button>
             <button onClick={handleDownloadDb} className="px-8 py-4 rounded-2xl bg-white/10 hover:bg-white/20 text-white border border-white/10 flex items-center gap-3 font-bold transition-all">
-              <Download className="w-5 h-5" /> Export DB Archive
+              <Download className="w-5 h-5" /> Export Data Archive
             </button>
           </div>
         </div>

@@ -8,7 +8,7 @@
 # -----------------------------------------------------------------------
 # Project & Region
 # -----------------------------------------------------------------------
-project_id = "your-gcp-project-id"
+project_id = "thd-workspace"
 region     = "us-central1"
 
 # -----------------------------------------------------------------------
@@ -23,12 +23,13 @@ repository_name = "patient-appointment-repo"
 # -----------------------------------------------------------------------
 cloud_run_cpu    = "1000m"
 cloud_run_memory = "512Mi"
+cloud_sql_tier   = "db-custom-1-3840"
 
 # -----------------------------------------------------------------------
 # Networking
 # -----------------------------------------------------------------------
-vpc_network_name = "your-vpc-network-name"
-vpc_subnet_name  = "your-vpc-subnet-name"
+vpc_network_name = "polaris-dev-vpc"
+vpc_subnet_name  = "polaris-dev-subnet"
 
 # -----------------------------------------------------------------------
 # API Gateway
@@ -39,16 +40,20 @@ api_gateway_id = "patient-appointment-gateway"
 # IAP Access Control
 # -----------------------------------------------------------------------
 iap_allowed_users = [
-  "user@example.com"
+  "akhtar-hussain.shaikh@atos.net"
 ]
 
-iap_allowed_groups = [
-  "group@example.com"
-]
+iap_allowed_groups = []
 
 iap_service_account = "service-PROJECT_NUMBER@gcp-sa-iap.iam.gserviceaccount.com"
 
 # -----------------------------------------------------------------------
 # Secrets
 # -----------------------------------------------------------------------
-gemini_api_key = "YOUR_GEMINI_API_KEY"
+db_name        = "patient_appointment"
+db_user        = "patient_app"
+gemini_api_secret_id        = "gemini-api-key"
+gemini_api_secret_version   = "latest"
+db_password_secret_id       = "patient-db-password"
+db_password_secret_version  = "latest"
+cloud_run_service_account_id = "patient-appointment-sa"
