@@ -280,8 +280,8 @@ export default function App() {
       <div className="w-full md:w-80 bg-white border-r border-slate-200 flex flex-col h-screen sticky top-0 z-10 shadow-xl">
         <div className="p-8 border-b border-slate-100 bg-indigo-600 text-white">
           <div className="flex items-center space-x-3 mb-3">
-            {/** <Stethoscope className="w-8 h-8" />          **/}
-            <img src="/db/Designer.png" alt="Doc Point Logo" width={32} height={32} className="rounded-full" />
+            <Stethoscope className="w-8 h-8" />          
+            {/** <img src="/db/Designer.png" alt="Doc Point Logo" width={32} height={32} className="rounded-full" />**/}
             <h1 className="text-2xl font-black uppercase tracking-tighter">Doc Point</h1>
           </div>
           <div className="flex flex-col gap-1">
