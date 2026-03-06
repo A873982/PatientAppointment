@@ -83,8 +83,6 @@ export default function App() {
   const [connected, setConnected] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isSyncingLocal, setIsSyncingLocal] = useState(false);
-  const [isFallbackMode, setIsFallbackMode] = useState(false);
   const [logs, setLogs] = useState<LogMessage[]>([]);
   const [systemLogs, setSystemLogs] = useState<LogMessage[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -100,14 +98,13 @@ export default function App() {
   const loadSQLiteData = async (date?: string) => {
     setIsRefreshing(true);
     try {
-      await SQLiteService.initDatabase();
       const docs = await SQLiteService.getDoctors();
       const scheds = await SQLiteService.getSchedules(date || selectedDate);
       setDoctors(docs);
       setSchedules(scheds);
       addSystemLog(`Engine Sync: ${formatDisplayDate(date || selectedDate)}`);
     } catch (err) {
-      setError("Local DB Load Failed");
+      setError("Database Load Failed");
     } finally {
       setIsRefreshing(false);
     }
@@ -129,7 +126,7 @@ export default function App() {
     (Object.values(schedules) as DoctorSchedule[]).forEach(sched => {
       const doc = doctors.find(d => d.id === sched.doctorId);
       sched.slots.filter(s => s.isBooked).forEach(s => {
-        rows.push([s.bookedBy || "Unknown", s.contact || "N/A", "Relational Record", doc?.name || "N/A", doc?.specialty || "N/A", formatDisplayDate(s.date), s.time, doc?.roomNo || "N/A", doc?.address || "N/A"]);
+        rows.push([s.bookedBy || "Unknown", s.contact || "N/A",s.dob || "Relational Record", doc?.name || "N/A", doc?.specialty || "N/A", formatDisplayDate(s.date), s.time, doc?.roomNo || "N/A", doc?.address || "N/A"]);
       });
     });
     if (rows.length === 0) return alert("No booked appointments to export.");
@@ -143,40 +140,6 @@ export default function App() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  };
-
-  const handleSyncLocalFile = async () => {
-    try {
-      if (SQLiteService.isFileSystemSupported()) {
-        const [handle] = await (window as any).showOpenFilePicker({
-          types: [{ description: 'SQLite DB', accept: { 'application/octet-stream': ['.db', '.sqlite'] } }]
-        });
-        if (handle) {
-          setIsRefreshing(true);
-          const success = await SQLiteService.connectLocalFile(handle);
-          if (success) {
-            await loadSQLiteData();
-            setIsSyncingLocal(true);
-            setToast({ message: "Linked to Physical DB", type: 'success' });
-          }
-        }
-      }
-    } catch (err) {} finally { setIsRefreshing(false); }
-  };
-
-  const handleLegacyFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setIsRefreshing(true);
-    try {
-      const success = await SQLiteService.loadFromBlob(file);
-      if (success) {
-        await loadSQLiteData();
-        setIsSyncingLocal(true);
-        setIsFallbackMode(true);
-        setToast({ message: "Local DB Restored", type: 'success' });
-      }
-    } finally { setIsRefreshing(false); }
   };
 
   const addLog = (text: string, role: 'user' | 'model', isFinal: boolean = true) => {
@@ -259,37 +222,28 @@ export default function App() {
   };
 
   const toggleConnection = async () => {
-    // Prefer runtime-injected key (Cloud Run env var via docker-entrypoint.sh),
-    // fall back to build-time key (local .env via vite.config.ts).
-    const apiKey = (window as any).GEMINI_API_KEY || process.env.API_KEY;
     if (connected) {
       await savePartialTranscript();
       await agentRef.current?.disconnect();
       setConnected(false);
-      currentPatientName.current = "";
+      currentPatientName.current = '';
       currentTranscriptFileName.current = null;
     } else {
-      if (!apiKey) return setError("Gemini API Key missing.");
+      if (!process.env.API_KEY) return setError("Gemini API Key missing.");
       setLogs([]);
       currentTranscriptFileName.current = null;
       const agent = new LiveAgentService({
-        apiKey: apiKey,
+        apiKey: process.env.API_KEY,
         onConnect: () => setConnected(true),
         onDisconnect: () => setConnected(false),
-        onError: (e) => {
-          setError(e.message);
-          setConnected(false);
-        },
+        onError: (e) => { setError(e.message); setConnected(false); },
         onTranscript: (text, role, isFinal) => addLog(text, role, isFinal),
-        onToolCall: handleToolCall,
+        onToolCall: handleToolCall
       });
       agentRef.current = agent;
-      await agent.connect(
-        `You are Athosia, clinical assistant for Upstate Medical. LISTEN FULLY. Today is ${new Date().toISOString().split("T")[0]}. Confirm Doctor, Date, Time, and Location.`,
-        TOOLS,
-      );
+      await agent.connect(`You are Athosia, clinical assistant for Upstate Medical. LISTEN FULLY. Today is ${new Date().toISOString().split('T')[0]}. Confirm Doctor, Date, Time, and Location.`, TOOLS);
     }
-  };;
+  };
 
   const handleLogout = () => {
     if (connected) agentRef.current?.disconnect();
@@ -303,8 +257,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans text-slate-900 overflow-hidden">
-      <input type="file" ref={fileInputRef} onChange={handleLegacyFileSelect} className="hidden" accept=".db,.sqlite" />
-
       {toast?.type === 'sms' && (
         <div className="fixed bottom-6 right-6 z-[100] animate-slide-up w-80">
           <div className="bg-slate-900 text-white rounded-3xl p-5 shadow-2xl border border-slate-700 relative">
@@ -328,7 +280,8 @@ export default function App() {
       <div className="w-full md:w-80 bg-white border-r border-slate-200 flex flex-col h-screen sticky top-0 z-10 shadow-xl">
         <div className="p-8 border-b border-slate-100 bg-indigo-600 text-white">
           <div className="flex items-center space-x-3 mb-3">
-            <Stethoscope className="w-8 h-8" />          
+            {/** <Stethoscope className="w-8 h-8" />          **/}
+            <img src="/db/Designer.png" alt="Doc Point Logo" width={32} height={32} className="rounded-full" />
             <h1 className="text-2xl font-black uppercase tracking-tighter">Doc Point</h1>
           </div>
           <div className="flex flex-col gap-1">
@@ -400,7 +353,7 @@ export default function App() {
          ) : view === 'admin' ? (
            <AdminDashboard 
              doctors={doctors} schedules={schedules} onUpdate={() => loadSQLiteData()} 
-             onSyncLocal={handleSyncLocalFile} isSyncingLocal={isSyncingLocal} isFallbackMode={isFallbackMode}
+             
            />
          ) : (
            <UserManagement />

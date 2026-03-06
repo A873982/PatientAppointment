@@ -40,7 +40,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
           <div className="bg-indigo-600 p-10 text-white text-center">
             <div className="flex justify-center mb-4">
               <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md">
-                <Stethoscope className="w-8 h-8 text-white" />
+                {/* <Stethoscope className="w-8 h-8 text-white" /> */}
+                <img src="/db/Designer.png" alt="Doc Point Logo" className="rounded-full" />
               </div>
             </div>
             <h1 className="text-3xl font-black uppercase tracking-tighter mb-2">Doc Point</h1>

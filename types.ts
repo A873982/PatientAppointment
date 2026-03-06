@@ -26,7 +26,8 @@ export interface Slot {
   blockedReason?: string;
   patientId?: number; 
   bookedBy?: string;  
-  contact?: string;   
+  contact?: string; 
+  dob?: string;   
 }
 
 export interface Holiday {
