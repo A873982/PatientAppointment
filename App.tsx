@@ -148,6 +148,19 @@ export default function App() {
     setSystemLogs(prev => [...prev, { role: 'system', text, timestamp: new Date(), isFinal: true }]);
   };
 
+  const normalizeToolArgs = (rawArgs: any): Record<string, any> => {
+    if (!rawArgs) return {};
+    if (typeof rawArgs === 'string') {
+      try {
+        const parsed = JSON.parse(rawArgs);
+        return parsed && typeof parsed === 'object' ? parsed : {};
+      } catch {
+        return {};
+      }
+    }
+    return typeof rawArgs === 'object' ? rawArgs : {};
+  };
+
   const getFullTranscript = () => logs.filter(l => l.isFinal).map(l => `${l.role === 'user' ? 'PATIENT' : 'AGENT'}: ${l.text}`).join('\n');
 
   const savePartialTranscript = async () => {
@@ -176,42 +189,72 @@ export default function App() {
   };
 
   const handleToolCall = async (name: string, args: any) => {
-    addSystemLog(`Executing Tool: ${name}`);
-    if (args.patient_name) currentPatientName.current = args.patient_name;
-    if (args.date && args.date !== selectedDate) {
-      addSystemLog(`Syncing UI to requested date: ${formatDisplayDate(args.date)}`);
-      setSelectedDate(args.date);
-    }
-    if (name === 'get_doctors') {
-      const all = await SQLiteService.getDoctors();
-      return args.specialty ? all.filter(d => d.specialty.toLowerCase().includes(args.specialty.toLowerCase())) : all;
-    }
-    if (name === 'get_slots') {
-      const targetDate = args.date || selectedDate;
-      const { available, reason } = await SQLiteService.ensureSlotsForDate(args.doctor_id, targetDate);
-      if (!available) return { error: `Doctor unavailable on ${formatDisplayDate(targetDate)}: ${reason}` };
-      const allScheds = await SQLiteService.getSchedules(targetDate);
-      return allScheds[args.doctor_id]?.slots.map(s => ({ time: s.time, is_available: !s.isBooked && !s.isBlocked })) || [];
-    }
-    if (name === 'book_slot') {
-      const res = await SQLiteService.bookAppointment(args.doctor_id, args.slot_time, args.patient_name, args.patient_phone, args.patient_dob, args.date);
-      if (res.success && res.slotId) {
-        const transcript = getFullTranscript();
-        const fileName = await SQLiteService.saveTranscript(res.slotId, args.patient_name, transcript, currentTranscriptFileName.current);
-        currentTranscriptFileName.current = fileName;
-        addSystemLog(`Official Transcript Committed: ${fileName}`);
-        await loadSQLiteData(args.date || selectedDate);
-        const doctor = doctors.find(d => d.id === args.doctor_id);
-        if (doctor) triggerSimulatedSMS(doctor, args.patient_name, args.slot_time, args.date || selectedDate);
+    try {
+      const safeArgs = normalizeToolArgs(args);
+      addSystemLog(`Executing Tool: ${name}`);
+      if (safeArgs.patient_name) currentPatientName.current = safeArgs.patient_name;
+      if (safeArgs.date && safeArgs.date !== selectedDate) {
+        addSystemLog(`Syncing UI to requested date: ${formatDisplayDate(safeArgs.date)}`);
+        setSelectedDate(safeArgs.date);
       }
-      return res;
+      if (name === 'get_doctors') {
+        const all = await SQLiteService.getDoctors();
+        const specialty = typeof safeArgs.specialty === 'string' ? safeArgs.specialty.trim().toLowerCase() : '';
+        if (!specialty || specialty === 'any' || specialty === 'all' || specialty === 'general') return all;
+        const filtered = all.filter(d => d.specialty.toLowerCase().includes(specialty));
+        // Avoid false "no doctors" outcomes from over-specific phrasing by returning full list as fallback.
+        return filtered.length > 0 ? filtered : all;
+      }
+      if (name === 'get_slots') {
+        const doctorId = typeof safeArgs.doctor_id === 'string' ? safeArgs.doctor_id : '';
+        if (!doctorId) {
+          return { error: 'doctor_id is required. Call get_doctors first and use the selected doctor id.' };
+        }
+        const targetDate = safeArgs.date || selectedDate;
+        const { available, reason } = await SQLiteService.ensureSlotsForDate(doctorId, targetDate);
+        if (!available) return { error: `Doctor unavailable on ${formatDisplayDate(targetDate)}: ${reason}` };
+        const allScheds = await SQLiteService.getSchedules(targetDate);
+        return allScheds[doctorId]?.slots.map(s => ({ time: s.time, is_available: !s.isBooked && !s.isBlocked })) || [];
+      }
+      if (name === 'book_slot') {
+        const res = await SQLiteService.bookAppointment(
+          safeArgs.doctor_id,
+          safeArgs.slot_time,
+          safeArgs.patient_name,
+          safeArgs.patient_phone,
+          safeArgs.patient_dob,
+          safeArgs.date,
+        );
+        if (res.success && res.slotId) {
+          const transcript = getFullTranscript();
+          const fileName = await SQLiteService.saveTranscript(
+            res.slotId,
+            safeArgs.patient_name,
+            transcript,
+            currentTranscriptFileName.current,
+          );
+          currentTranscriptFileName.current = fileName;
+          addSystemLog(`Official Transcript Committed: ${fileName}`);
+          await loadSQLiteData(safeArgs.date || selectedDate);
+          const doctor = doctors.find(d => d.id === safeArgs.doctor_id);
+          if (doctor) triggerSimulatedSMS(doctor, safeArgs.patient_name, safeArgs.slot_time, safeArgs.date || selectedDate);
+        }
+        return res;
+      }
+      return { error: "Unknown tool call" };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown tool failure';
+      addSystemLog(`Tool Failed: ${name} -> ${message}`);
+      return { error: `Tool ${name} failed: ${message}` };
     }
-    return { error: "Unknown tool call" };
   };
 
   const toggleConnection = async () => {
-    // Prefer runtime-injected key from server, fall back to local Vite env mapping.
-    const apiKey = (window as any).GEMINI_API_KEY || process.env.API_KEY;
+    // Prefer runtime-injected key from server, but ignore unresolved placeholder in Vite dev.
+    const runtimeKey = (window as any).GEMINI_API_KEY;
+    const injectedKey =
+      runtimeKey && runtimeKey !== '__GEMINI_API_KEY__' ? runtimeKey : '';
+    const apiKey = injectedKey || process.env.API_KEY;
     if (connected) {
       await savePartialTranscript();
       await agentRef.current?.disconnect();
